@@ -1,0 +1,139 @@
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let isJumping = false;
+let jumpHeight = 0;
+let elapsedTime = 0;
+let isGameOver = false;
+
+const player = {
+  x: 100,
+  y: canvas.height - 50,
+  size: 40,
+  draw() {
+    ctx.fillStyle = 'black';
+    ctx.fillRect(this.x, this.y - this.size - jumpHeight, this.size, this.size);
+  },
+  jump() {
+    if (!isJumping && !isGameOver) {  // ゲームオーバー時はジャンプできない
+      isJumping = true;
+      jumpHeight = 0;
+    }
+  }
+};
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    if (isGameOver) {
+      resetGame();  // ゲームオーバー時はリセットする
+    } else {
+      player.jump();
+    }
+  }
+});
+
+class Obstacle {
+  constructor(x, y, width, height) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+  }
+
+  draw() {
+    ctx.fillStyle = 'red';
+    ctx.fillRect(this.x, this.y - this.height, this.width, this.height);
+  }
+
+  update() {
+    if (!isGameOver) {  // ゲームオーバー時は障害物が動かない
+      this.x -= 5;
+
+      if (this.x + this.width < 0) {
+        this.x = canvas.width + Math.random() * 800;
+      }
+    }
+  }
+}
+
+const obstacles = [
+  new Obstacle(canvas.width, canvas.height - 50, 40, 60),
+  new Obstacle(canvas.width + 400, canvas.height - 50, 40, 60),
+];
+
+function checkCollision(player, obstacle) {
+  const playerTop = player.y - player.size - jumpHeight;
+  const playerBottom = player.y - jumpHeight;
+  const playerLeft = player.x;
+  const playerRight = player.x + player.size;
+
+  const obstacleTop = obstacle.y - obstacle.height;
+  const obstacleBottom = obstacle.y;
+  const obstacleLeft = obstacle.x;
+  const obstacleRight = obstacle.x + obstacle.width;
+
+  return (
+    playerBottom > obstacleTop &&
+    playerTop < obstacleBottom &&
+    playerRight > obstacleLeft &&
+    playerLeft < obstacleRight
+  );
+}
+
+function resetGame() {
+  isGameOver = false;
+  elapsedTime = 0;
+  jumpHeight = 0;
+  obstacles.forEach((obstacle, index) => {
+    obstacle.x = canvas.width + index * 400; // 障害物を初期位置にリセット
+  });
+  requestAnimationFrame(gameLoop);
+}
+
+function gameLoop(timestamp) {
+  if (isGameOver) {
+    // ゲームオーバーの表示
+    ctx.fillStyle = 'black';
+    ctx.font = '20px Arial';
+    ctx.fillText('ゲームオーバー', canvas.width / 2 - 50, canvas.height / 2);
+    return;
+  }
+
+  elapsedTime = Math.floor(timestamp / 1000);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // ジャンプ処理
+  if (isJumping) {
+    jumpHeight += 7.5;
+    if (jumpHeight > 150) {
+      isJumping = false;
+    }
+  } else {
+    if (jumpHeight > 0) {
+      jumpHeight -= 7.5;
+    }
+  }
+
+  player.draw();
+  obstacles.forEach(obstacle => {
+    obstacle.draw();
+    obstacle.update();
+  });
+
+  // 時間表示
+  ctx.fillStyle = 'black';
+  ctx.font = '20px Arial';
+  ctx.fillText(`Time: ${elapsedTime}s`, 10, 30);
+
+  // 衝突判定
+  if (obstacles.some(obstacle => checkCollision(player, obstacle))) {
+    isGameOver = true;
+    ctx.fillStyle = 'black';
+    ctx.font = '20px Arial';
+    ctx.fillText('ゲームオーバー', canvas.width / 2 - 50, canvas.height / 2);
+  } else {
+    requestAnimationFrame(gameLoop);
+  }
+}
+
+requestAnimationFrame(gameLoop);
